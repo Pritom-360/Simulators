@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orthographic Projection Simulator</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-grad-1: #e2e8f0;
+            --bg-grad-2: #f8fafc;
+            --panel-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --vp-color: #fcd34d; /* Yellow/Orange */
+            --hp-color: #60a5fa; /* Blue */
+            --pp-color: #93c5fd; /* Light Blue */
+            --obj-color: #4ade80; /* Green */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--bg-grad-1), var(--bg-grad-2));
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(to bottom, #f8fafc, #e2e8f0);
+            overflow: hidden;
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 1.2rem;
+            font-weight: 600;
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        /* Right Panel */
+        .info-panel {
+            width: 420px;
+            background: var(--panel-bg);
+            box-shadow: -4px 0 25px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            overflow-y: auto;
+            border-left: 1px solid var(--border);
+            z-index: 5;
+        }
+
+        .header {
+            margin-bottom: 1.5rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            background: #f1f5f9;
+            border: 1px solid var(--border);
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #e2e8f0;
+        }
+
+        button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+
+        .action-btn {
+            background: white;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+            padding: 0.75rem;
+            width: 100%;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .action-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Dynamic Explanation Card */
+        .explanation-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-top: auto;
+        }
+
+        .explanation-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .explanation-card p {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            margin-bottom: 1rem;
+        }
+
+        .explanation-card ul {
+            margin-left: 1.25rem;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .symbol-container {
+            display: flex;
+            justify-content: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        /* Plane legend */
+        .legend {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            justify-content: center;
+        }
+        .legend span {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .dot {
+            width: 12px; height: 12px; border-radius: 3px;
+        }
+        .vp-dot { background: var(--vp-color); border: 1px solid #d97706; }
+        .hp-dot { background: var(--hp-color); border: 1px solid #2563eb; }
+        .pp-dot { background: var(--pp-color); border: 1px solid #3b82f6; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .app-container {
+                flex-direction: column;
+            }
+            #canvas-container {
+                height: 50vh;
+                flex: none;
+            }
+            .info-panel {
+                width: 100%;
+                height: 50vh;
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 3D Canvas Area -->
+        <div id="canvas-container">
+            <div id="loader">Initializing Simulation...</div>
+        </div>
+
+        <!-- Information & Controls Panel -->
+        <div class="info-panel">
+            <div class="header">
+                <h1>Orthographic Projection</h1>
+                <p>Interactive 3D Glass Box simulator with anatomically correct unfolding for each angle system.</p>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">Select Angle System</div>
+                <div class="btn-group">
+                    <button id="btn-angle-1" class="active" onclick="setAngleSystem(1)">1st Angle</button>
+                    <button id="btn-angle-2" onclick="setAngleSystem(2)">2nd Angle</button>
+                    <button id="btn-angle-3" onclick="setAngleSystem(3)">3rd Angle</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">Interactions</div>
+                <button id="btn-fold" class="action-btn" onclick="toggleFold()">Unfold Glass Box</button>
+                <button id="btn-lines" class="action-btn" onclick="toggleLines()" style="background: white; border-color: var(--text-muted); color: var(--text-muted);">Toggle Projection Lines</button>
+            </div>
+
+            <div class="explanation-card" id="explanation">
+                <!-- Content injected via JS -->
+            </div>
+
+            <div class="legend">
+                <span><div class="dot vp-dot"></div> Front (VP)</span>
+                <span><div class="dot hp-dot"></div> Top (HP)</span>
+                <span><div class="dot pp-dot"></div> Side (PP)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js Dependencies from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- Content Data ---
+        const contentData = {
+            1: {
+                title: "1st Angle Projection",
+                desc: "The object is placed <b>between</b> the observer and the planes. The projections are pushed *behind* the object.<br><br><b>Unfolding Rules:</b><br>• Top View (HP) folds <b>DOWN</b>.<br>• Right Side View (Left PP) folds <b>LEFT</b>.",
+                bullets:[
+                    "Top View is BELOW the Front View.",
+                    "Right Side View is on the LEFT.",
+                    "Standard in Europe & Asia."
+                ],
+                symbol: `
+                    <svg viewBox="0 0 100 50" width="120" height="60">
+                        <polygon points="20,15 20,35 40,28 40,22" fill="none" stroke="var(--text-main)" stroke-width="2"/>
+                        <line x1="10" y1="25" x2="90" y2="25" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="5,3"/>
+                        <line x1="70" y1="5" x2="70" y2="45" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="5,3"/>
+                        <circle cx="70" cy="25" r="14" fill="none" stroke="var(--text-main)" stroke-width="2"/>
+                        <circle cx="70" cy="25" r="6" fill="none" stroke="var(--text-main)" stroke-width="2"/>
+                    </svg>`
+            },
+            2: {
+                title: "2nd Angle Projection",
+                desc: "The object is placed in the 2nd quadrant (above HP, behind VP). Both planes end up on the same side of the intersection.<br><br><b>Why it's rarely used:</b><br>When unfolding, the Top View (HP) folds <b>UP</b> and perfectly overlaps the Front View (VP).",
+                bullets:[
+                    "Top View and Front View overlap on the same plane.",
+                    "Side View also folds inward overlapping them.",
+                    "Creates confusing drawings (Not Used)."
+                ],
+                symbol: `<i>(No standard symbol as it is not used in practice)</i>`
+            },
+            3: {
+                title: "3rd Angle Projection",
+                desc: "The projection planes are placed <b>between</b> the observer and the object (like looking into a glass box). Views are pulled *forward*.<br><br><b>Unfolding Rules:</b><br>• Top View (HP) folds <b>UP</b>.<br>• Right Side View (Right PP) folds <b>RIGHT</b>.",
+                bullets:[
+                    "Top View is ABOVE the Front View.",
+                    "Right Side View is on the RIGHT.",
+                    "Standard in USA & Canada."
+                ],
+                symbol: `
+                    <svg viewBox="0 0 100 50" width="120" height="60">
+                        <line x1="10" y1="25" x2="90" y2="25" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="5,3"/>
+                        <line x1="30" y1="5" x2="30" y2="45" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="5,3"/>
+                        <circle cx="30" cy="25" r="14" fill="none" stroke="var(--text-main)" stroke-width="2"/>
+                        <circle cx="30" cy="25" r="6" fill="none" stroke="var(--text-main)" stroke-width="2"/>
+                        <polygon points="60,22 60,28 80,35 80,15" fill="none" stroke="var(--text-main)" stroke-width="2"/>
+                    </svg>`
+            }
+        };
+
+        // --- Application State ---
+        let state = {
+            angle: 1,           
+            isUnfolded: false,
+            showLines: true,
+            progress: 0,        
+            targetProgress: 0   
+        };
+
+        // --- Three.js Variables ---
+        let scene, camera, renderer, controls;
+        let planesGroup, projectionLinesGroup, objectGroup;
+        let vpHinge, hpHinge, ppHinge;
+        let objectVertices =[];
+        
+        // Colors mapping to user's standard drafting examples
+        const COLOR_VP = 0xfcd34d; // Yellow/Orange
+        const COLOR_HP = 0x60a5fa; // Blue
+        const COLOR_PP = 0x93c5fd; // Light Blue
+        const COLOR_OBJ = 0x4ade80; // Green
+        const COLOR_LINE = 0x1e293b;
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(12, 10, 15);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 0, 0);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 15);
+            scene.add(dirLight);
+
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+            dirLight2.position.set(-10, -10, -10);
+            scene.add(dirLight2);
+
+            // Groups
+            objectGroup = new THREE.Group();
+            scene.add(objectGroup);
+
+            planesGroup = new THREE.Group();
+            scene.add(planesGroup);
+            
+            projectionLinesGroup = new THREE.Group();
+            scene.add(projectionLinesGroup);
+
+            // Build the Mechanical Object (Stepped Corner Block)
+            buildObject();
+
+            // Build Initial Configuration
+            updateUIContent();
+            buildPlanesSystem(state.angle);
+
+            window.addEventListener('resize', onWindowResize);
+            
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => document.getElementById('loader').style.display = 'none', 300);
+            }, 500);
+        }
+
+        // --- 3D Object Creation ---
+        // Builds a corner stepped block that visually matches standard drafting exam parts
+        function buildObject() {
+            const material = new THREE.MeshStandardMaterial({ 
+                color: COLOR_OBJ, roughness: 0.3, metalness: 0.1,
+                polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 
+            });
+            const matLine = new THREE.LineBasicMaterial({ color: 0x006000, linewidth: 2 });
+
+            function addBlock(w, h, d, x, y, z) {
+                const geo = new THREE.BoxGeometry(w, h, d);
+                const mesh = new THREE.Mesh(geo, material);
+                mesh.position.set(x, y, z);
+                
+                const edges = new THREE.EdgesGeometry(geo);
+                const line = new THREE.LineSegments(edges, matLine);
+                mesh.add(line);
+                
+                objectGroup.add(mesh);
+            }
+
+            // Object size bounds: X[-1.5, 1.5], Y[-1.5, 1.5], Z[-1.5, 1.5]
+            // 1. Tall Column (Back-Left)
+            addBlock(1.5, 3, 1.5, -0.75, 0, -0.75);
+            // 2. Base Arm X (Right)
+            addBlock(1.5, 1.5, 1.5, 0.75, -0.75, -0.75);
+            // 3. Base Arm Z (Front)
+            addBlock(1.5, 1.5, 1.5, -0.75, -0.75, 0.75);
+
+            // Define extreme vertices for projection lines
+            objectVertices =[
+                new THREE.Vector3(-1.5, 1.5, -1.5), // Top Back Left
+                new THREE.Vector3(0, 1.5, -1.5),    // Top Column Right
+                new THREE.Vector3(-1.5, 1.5, 0),    // Top Column Front
+                new THREE.Vector3(1.5, -0.5, -1.5), // Top X-Arm Right
+                new THREE.Vector3(-1.5, -0.5, 1.5), // Top Z-Arm Front
+                new THREE.Vector3(1.5, -1.5, -1.5), // Bottom Back Right
+                new THREE.Vector3(-1.5, -1.5, 1.5), // Bottom Front Left
+                new THREE.Vector3(1.5, -1.5, 1.5)   // Bottom Front Right
+            ];
+        }
+
+        function createPlaneMesh(color, name, borderColor) {
+            const size = 6;
+            const geo = new THREE.PlaneGeometry(size, size);
+            
+            const grid = new THREE.GridHelper(size, 6, 0xffffff, 0xffffff);
+            grid.rotation.x = Math.PI / 2;
+            grid.material.transparent = true;
+            grid.material.opacity = 0.4;
+
+            const mat = new THREE.MeshBasicMaterial({ 
+                color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.85
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            
+            const edges = new THREE.LineSegments(
+                new THREE.EdgesGeometry(geo),
+                new THREE.LineBasicMaterial({ color: borderColor, linewidth: 3 })
+            );
+            
+            mesh.add(grid);
+            mesh.add(edges);
+            
+            const sprite = createTextSprite(name);
+            sprite.position.set(0, size/2 - 0.5, 0.1);
+            mesh.add(sprite);
+
+            return mesh;
+        }
+
+        function createTextSprite(message) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 44px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(message, 256, 64);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(4, 1, 1);
+            return sprite;
+        }
+
+        // --- Glass Box System Construction ---
+        function buildPlanesSystem(angle) {
+            planesGroup.clear();
+            projectionLinesGroup.clear();
+
+            const s = 3; // Half-size of the box
+            
+            vpHinge = new THREE.Group();
+            hpHinge = new THREE.Group();
+            ppHinge = new THREE.Group();
+
+            let vpPos, hpPos, ppPos;
+            let hpOffset, ppOffset;
+
+            // Rotation mapping to align the local 2D drawing correctly
+            const hpRot = new THREE.Euler(-Math.PI/2, 0, 0); 
+            const ppRot = new THREE.Euler(0, Math.PI/2, 0);
+
+            if (angle === 1) {
+                // 1st Angle: Planes BEHIND, BELOW, LEFT of object
+                vpPos = new THREE.Vector3(0, 0, -s); 
+                
+                hpHinge.position.set(0, -s, -s); 
+                hpOffset = new THREE.Vector3(0, 0, s);
+                
+                ppHinge.position.set(-s, 0, -s); 
+                ppOffset = new THREE.Vector3(0, 0, s);
+                
+            } else if (angle === 3) {
+                // 3rd Angle: Planes IN FRONT, ABOVE, RIGHT of object
+                vpPos = new THREE.Vector3(0, 0, s); 
+                
+                hpHinge.position.set(0, s, s); 
+                hpOffset = new THREE.Vector3(0, 0, -s);
+                
+                ppHinge.position.set(s, 0, s); 
+                ppOffset = new THREE.Vector3(0, 0, -s);
+
+            } else if (angle === 2) {
+                // 2nd Angle: VP Front, HP Below (Object is Above HP, Behind VP)
+                vpPos = new THREE.Vector3(0, 0, s);
+                
+                hpHinge.position.set(0, -s, s); 
+                hpOffset = new THREE.Vector3(0, 0, -s);
+                
+                ppHinge.position.set(-s, 0, s); 
+                ppOffset = new THREE.Vector3(0, 0, -s);
+            }
+
+            // Construct VP (Front Plane)
+            vpHinge.position.copy(vpPos);
+            const vpMesh = createPlaneMesh(COLOR_VP, "FRONT VIEW", 0xd97706);
+            vpHinge.add(vpMesh);
+            vpMesh.add(drawOutlines('VP'));
+
+            // Construct HP (Top Plane)
+            const hpMesh = createPlaneMesh(COLOR_HP, "TOP VIEW", 0x2563eb);
+            hpMesh.position.copy(hpOffset);
+            hpMesh.rotation.copy(hpRot);
+            hpHinge.add(hpMesh);
+            hpMesh.add(drawOutlines('HP'));
+
+            // Construct PP (Side Plane)
+            const ppMesh = createPlaneMesh(COLOR_PP, "SIDE VIEW", 0x3b82f6);
+            ppMesh.position.copy(ppOffset);
+            ppMesh.rotation.copy(ppRot);
+            ppHinge.add(ppMesh);
+            ppMesh.add(drawOutlines('PP'));
+
+            planesGroup.add(vpHinge);
+            planesGroup.add(hpHinge);
+            planesGroup.add(ppHinge);
+
+            createProjectionLines(angle, s);
+        }
+
+        // Draws correct standard 2D outlines directly on the local plane
+        function drawOutlines(type) {
+            const material = new THREE.LineBasicMaterial({ color: COLOR_LINE, linewidth: 3 });
+            const group = new THREE.Group();
+            const zOff = 0.05; // Prevent Z-fighting
+
+            if (type === 'VP') {
+                // Front View: L-Shape with inner dividing line
+                const outline =[
+                    new THREE.Vector3(-1.5, 1.5, zOff), new THREE.Vector3(-1.5, -1.5, zOff),
+                    new THREE.Vector3(1.5, -1.5, zOff), new THREE.Vector3(1.5, 0, zOff),
+                    new THREE.Vector3(0, 0, zOff), new THREE.Vector3(0, 1.5, zOff),
+                    new THREE.Vector3(-1.5, 1.5, zOff)
+                ];
+                const inner =[new THREE.Vector3(-1.5, 0, zOff), new THREE.Vector3(0, 0, zOff)];
+                
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(outline), material));
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(inner), material));
+            } 
+            else if (type === 'HP') {
+                // Top View: Inverted L-shape mapping mapped perfectly to orientation logic
+                const outline =[
+                    new THREE.Vector3(-1.5, -1.5, zOff), new THREE.Vector3(1.5, -1.5, zOff),
+                    new THREE.Vector3(1.5, 0, zOff), new THREE.Vector3(0, 0, zOff),
+                    new THREE.Vector3(0, 1.5, zOff), new THREE.Vector3(-1.5, 1.5, zOff),
+                    new THREE.Vector3(-1.5, -1.5, zOff)
+                ];
+                const inner1 =[new THREE.Vector3(-1.5, 0, zOff), new THREE.Vector3(0, 0, zOff)];
+                const inner2 =[new THREE.Vector3(0, 0, zOff), new THREE.Vector3(0, -1.5, zOff)];
+                
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(outline), material));
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(inner1), material));
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(inner2), material));
+            }
+            else if (type === 'PP') {
+                // Right Side View: L-Shape with tall part mapped correctly to orientation
+                const outline =[
+                    new THREE.Vector3(-1.5, 1.5, zOff), new THREE.Vector3(0, 1.5, zOff),
+                    new THREE.Vector3(0, 0, zOff), new THREE.Vector3(1.5, 0, zOff),
+                    new THREE.Vector3(1.5, -1.5, zOff), new THREE.Vector3(-1.5, -1.5, zOff),
+                    new THREE.Vector3(-1.5, 1.5, zOff)
+                ];
+                const inner =[new THREE.Vector3(0, 0, zOff), new THREE.Vector3(0, -1.5, zOff)];
+                
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(outline), material));
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(inner), material));
+            }
+            return group;
+        }
+
+        function createProjectionLines(angle, s) {
+            const mat = new THREE.LineDashedMaterial({
+                color: 0x94a3b8, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.8
+            });
+
+            // Target coordinates
+            let targetZ = (angle === 1) ? -s : s; // VP
+            let targetY = (angle === 3) ? s : -s; // HP
+            let targetX = (angle === 1 || angle === 2) ? -s : s; // PP
+
+            objectVertices.forEach(v => {
+                addDashedLine(v, new THREE.Vector3(v.x, v.y, targetZ), mat); // To VP
+                addDashedLine(v, new THREE.Vector3(v.x, targetY, v.z), mat); // To HP
+                addDashedLine(v, new THREE.Vector3(targetX, v.y, v.z), mat); // To PP
+            });
+            
+            projectionLinesGroup.visible = state.showLines;
+        }
+
+        function addDashedLine(start, end, material) {
+            const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
+            const line = new THREE.Line(geo, material);
+            line.computeLineDistances();
+            projectionLinesGroup.add(line);
+        }
+
+        // --- UI & Interaction ---
+        function setAngleSystem(a) {
+            state.angle = a;
+            state.isUnfolded = false;
+            state.targetProgress = 0;
+            state.progress = 0;[1,2,3].forEach(num => document.getElementById(`btn-angle-${num}`).classList.remove('active'));
+            document.getElementById(`btn-angle-${a}`).classList.add('active');
+            
+            document.getElementById('btn-fold').innerText = "Unfold Glass Box";
+
+            updateUIContent();
+            buildPlanesSystem(a);
+        }
+
+        function toggleFold() {
+            state.isUnfolded = !state.isUnfolded;
+            state.targetProgress = state.isUnfolded ? 1 : 0;
+            document.getElementById('btn-fold').innerText = state.isUnfolded ? "Fold Glass Box" : "Unfold Glass Box";
+        }
+
+        function toggleLines() {
+            state.showLines = !state.showLines;
+            projectionLinesGroup.visible = state.showLines;
+            document.getElementById('btn-lines').style.borderColor = state.showLines ? "var(--primary)" : "var(--text-muted)";
+            document.getElementById('btn-lines').style.color = state.showLines ? "var(--primary)" : "var(--text-muted)";
+        }
+
+        function updateUIContent() {
+            const data = contentData[state.angle];
+            const html = `
+                <h2>${data.title} ${state.angle === 2 ? '⚠️' : ''}</h2>
+                <p>${data.desc}</p>
+                <ul>${data.bullets.map(b => `<li>${b}</li>`).join('')}</ul>
+                <div class="symbol-container">${data.symbol}</div>
+            `;
+            document.getElementById('explanation').innerHTML = html;
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth unfolding lerp
+            if (Math.abs(state.progress - state.targetProgress) > 0.001) {
+                state.progress += (state.targetProgress - state.progress) * 0.08;
+                applyUnfoldTransform(state.progress);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function applyUnfoldTransform(t) {
+            // Unfolding rules are mathematically consistent due to the hinge + offset mappings:
+            // 1st Angle: HP folds DOWN, PP folds LEFT
+            // 2nd Angle: HP folds UP (overlap VP), PP folds LEFT (overlap VP inside)
+            // 3rd Angle: HP folds UP, PP folds RIGHT
+            
+            hpHinge.rotation.x = t * (Math.PI / 2);
+            ppHinge.rotation.y = t * (-Math.PI / 2);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+    </script>
+</body>
+</html>
